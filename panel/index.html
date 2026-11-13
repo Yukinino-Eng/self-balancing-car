@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>平衡车 · 并行 PID 调参台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<header><div><p class="eyebrow">BALANCE / PARALLEL PID</p><h1>平衡车调参台</h1><p class="sub">原地平衡 · 五秒前进 · 定距后退</p></div><div class="connection"><span id="connection">未连接</span><button id="connect">连接 ST-Link</button></div></header>
+<div id="notice" role="status">连接前请退出 Keil 调试，让本面板独占 ST-Link。</div>
+<section class="controls">
+  <div><span class="label">运行状态</span><strong id="status">等待连接</strong><span id="remaining"></span></div>
+  <div class="buttons"><button id="start" class="primary" disabled>平衡 · 准备 3 秒</button><button id="task" disabled>前进 · 5 秒</button><button id="avoid" disabled>避障 · 停车后退</button><button id="reverse" disabled>定距后退</button><button id="brake" disabled>平滑停车</button><button id="stop" class="stop" disabled>关闭电机 / Esc</button></div>
+</section>
+<section class="card" id="taskModeSection" hidden>
+  <div class="section-head"><h2>实体按键任务模式</h2><span id="taskMode">连接后识别</span></div>
+  <div class="actions"><button id="modeBasic" disabled>选择基本五秒任务</button><button id="modeAvoid" disabled>选择避障任务</button></div>
+  <p class="hint" id="taskModeHint">连接后显示当前固件的模式切换方式。</p>
+  <p id="avoidConfig" class="hint"></p>
+</section>
+<div class="grid">
+  <div class="parameter-cards">
+    <section class="card">
+      <div class="section-head"><h2>并行速度 PI</h2><span id="parallelRetention">连接后识别保存能力</span></div>
+      <p class="hint intro">速度 PI 直接修正 PWM，与姿态 PD 相加。先关闭电机，再逐项应用。<span id="parallelSaveHint"></span></p>
+      <div class="table-head parallel-table"><span>参数 / 含义</span><span>输入值</span><span>车上实际</span><span></span></div>
+      <div id="parallelFields"></div>
+    </section>
+    <section class="card">
+      <div class="section-head"><h2>通用控制参数</h2><span>停止后整组生效</span></div>
+      <div class="table-head"><span>参数 / 含义</span><span>输入值</span><span>车上实际</span></div>
+      <div id="fields"></div>
+      <p id="ramp" class="hint"></p>
+      <div class="actions"><button id="load">载入文件</button><button id="save">保存文件</button><button id="apply" class="primary" disabled>应用到车</button><button id="persist" disabled>保存到车 · 掉电保留</button></div>
+      <p class="hint">「参数.ini」用于电脑上的通用参数。「保存到车」将当前支持掉电保留的参数写入车上 Flash。</p>
+    </section>
+  </div>
+  <section class="card telemetry">
+    <div class="section-head"><h2>实时观察</h2><span id="fresh">—</span></div>
+    <div class="pose"><div><span>车身倾角</span><strong id="pitch">—<small>°</small></strong></div><div><span>角速度</span><strong id="rate">—<small>°/s</small></strong></div></div>
+    <p class="hint">前倾为负，后倾为正。当前直立参考 <span id="reference">—</span>°。</p>
+    <canvas id="chart" width="620" height="180" aria-label="最近十秒车身倾角曲线"></canvas>
+    <div class="wheel"><span>左轮</span><div><i id="leftBar"></i></div><b id="left">—</b></div>
+    <div class="wheel"><span>右轮</span><div><i id="rightBar"></i></div><b id="right">—</b></div>
+    <dl>
+      <dt>姿态 PD 输出</dt><dd id="angleOutput">—</dd>
+      <dt>速度 PI 输出</dt><dd id="speedOutput">—</dd>
+      <dt>速度 P / I 分量</dt><dd id="speedTerms">—</dd>
+      <dt>合成 PWM 请求 · 前进为正</dt><dd id="pwmRequest">—</dd>
+      <dt>避障阶段</dt><dd id="avoidState">—</dd>
+      <dt>停车平衡剩余时间</dt><dd id="avoidHold">—</dd>
+      <dt>触发距离 / 后退目标</dt><dd id="avoidTarget">—</dd>
+      <dt>避障结束原因</dt><dd id="avoidReason">—</dd>
+      <dt>任务目标速度</dt><dd id="taskReference">—</dd>
+      <dt>实际速度目标（含位置保持）</dt><dd id="effectiveReference">—</dd>
+      <dt>位置保持状态</dt><dd id="positionState">—</dd>
+      <dt>中心偏移 / 软约束范围</dt><dd id="positionOffset">—</dd>
+      <dt>位置回中目标速度</dt><dd id="positionTarget">—</dd>
+      <dt>平均轮速 · 前进为正</dt><dd id="wheelSpeed">—</dd>
+      <dt>任务净位移（编码器估算）</dt><dd id="taskDistance">—</dd>
+      <dt>定距目标 / 剩余误差</dt><dd id="distanceGoal">—</dd>
+      <dt>右轮速 − 左轮速</dt><dd id="wheelDifference">—</dd>
+      <dt id="syncLabel">差速修正</dt><dd id="wheelCorrection">—</dd>
+      <dt>同步积分 / 实际差速</dt><dd id="syncTerms">—</dd>
+      <dt>前方距离</dt><dd id="rangeDistance">—</dd>
+      <dt>测距模块 / 芯片 ID</dt><dd id="rangeState">—</dd>
+      <dt>测距质量 / 数据年龄</dt><dd id="rangeQuality">—</dd>
+      <dt>OLED / 障碍指示灯</dt><dd id="displayState">—</dd>
+      <dt>扩展总线最长占用</dt><dd id="peripheralTiming">—</dd>
+      <dt>姿态融合 / 保护</dt><dd id="guard">—</dd>
+      <dt>本次通电启动次数</dt><dd id="runs">—</dd>
+      <dt>参数掉电记录</dt><dd id="persistent">—</dd>
+      <dt>故障记录</dt><dd id="fault">—</dd>
+    </dl>
+    <p id="syncConfig" class="hint"></p>
+    <p id="positionConfig" class="hint"></p>
+    <p id="faultDetail" class="hint"></p>
+    <p id="peripheralConfig" class="hint"></p>
+    <p class="hint" id="buttonInstructions">连接后显示当前固件的按键规则。</p>
+    <p class="hint" id="ledInstructions"></p>
+  </section>
+</div>
+<footer><span id="tiltProtection">倾角保护 · 连接后识别阈值</span><button id="shutdown">停止并关闭服务</button></footer>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

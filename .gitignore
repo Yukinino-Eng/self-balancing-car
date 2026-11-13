@@ -1,0 +1,12 @@
+firmware/Objects/
+firmware/Listings/
+firmware/evidence/
+firmware/release/
+firmware/Libraries/
+firmware/DebugConfig/
+*.uvguix.*
+*.uvgui.*
+panel/session.json
+panel/*.log
+panel/参数.ini
+node_modules/
